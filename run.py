@@ -1,11 +1,15 @@
 import requests
 import json
+import os
+from dotenv import load_dotenv
 from datetime import datetime as d
+
+load_dotenv()
 
 baseURL = 'https://discordapp.com/api'
 
 r = requests.Session()
-r.headers['Authorization'] = 'Bot Njk3MTg2MDE4NjY3MDAzOTY0.Xoz6fA.VDA2rD8FrmxHWgu0N5BZwJiStYo'
+r.headers['Authorization'] = 'Bot ' + str(os.getenv('DISC_BOT_KEY'))
 response = r.get(baseURL + '/users/@me/guilds')
 
 print(response.text)
@@ -24,6 +28,4 @@ for channel in channels:
         lastMessageTime = lastMessage['timestamp'].replace('+00:00', '')
         dateWritten = d.strptime(lastMessageTime, '%Y-%m-%dT%H:%M:%S.%f')
         timeDifference = d.utcnow() - dateWritten
-        if timeDifference > 30:
-            # PURGE
-            continue
+        
