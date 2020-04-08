@@ -2,30 +2,60 @@ import requests
 import json
 import os
 from dotenv import load_dotenv
-from datetime import datetime as d
+from datetime import datetime, timedelta
+import dateparser
 
-load_dotenv()
 
-baseURL = 'https://discordapp.com/api'
+class Discord():
 
-r = requests.Session()
-r.headers['Authorization'] = 'Bot ' + str(os.getenv('DISC_BOT_KEY'))
-response = r.get(baseURL + '/users/@me/guilds')
+    def __init__(self, token):
+        self.BASE = 'https://discordapp.com/api'
+        self.client = requests.Session()
+        self.client.headers['Authorization'] = 'Bot ' + str(token)
+        
+        
+    def _request(self, url):
+        response = self.client.get(self.BASE + url)
+        if response.status_code != 200:
+            print(response.text)
+            return # raise error
+        return response
 
-print(response.text)
+    def get_guilds(self):
 
-jsonResponse = json.loads(response.text)
+        return self._request('/users/@me/guilds').json()
 
-guildID = jsonResponse[0]['id']
+    def get_channels(self, guild_id):
 
-channelResponse = r.get(baseURL + '/guilds/' + str(guildID) + '/channels')
+        return self._request('/guilds/'+str(guild_id)+'/channels').json()
 
-channels = json.loads(channelResponse.text)
+    def get_messages(self, channel, last_message=False):
 
-for channel in channels:
-    if channel['type'] == 0:
-        lastMessage = json.loads(r.get(baseURL + '/channels/' + channel['id'] + '/messages/' + channel['last_message_id']).text)
-        lastMessageTime = lastMessage['timestamp'].replace('+00:00', '')
-        dateWritten = d.strptime(lastMessageTime, '%Y-%m-%dT%H:%M:%S.%f')
-        timeDifference = d.utcnow() - dateWritten
+        if last_message:
+            return self._request('/channels/' + channel['id']+'/messages/'+channel['last_message_id']).json()
+        return self._request('/channels/'+str(channel['id'])+'/messages').json()
+
+    def get_channels_to_archive(self, guild_id):
+
+        channels = self.get_channels(guild_id)
+
+        for channel in channels:
+            if channel['type'] == 0:
+                last_message = self.get_messages(channel, last_message=True)
+                last_message_time = dateparser.parse(last_message['timestamp'], settings={'TIMEZONE': 'UTC', 'RETURN_AS_TIMEZONE_AWARE': True})
+
+                if dateparser.parse('now', settings={'TIMEZONE': 'UTC', 'RETURN_AS_TIMEZONE_AWARE': True}) > timedelta(days=30) + last_message_time:
+                    print(channel['id'])
+
+
+
+
+
+
+if __name__ == '__main__':
+
+    load_dotenv()
+
+    d = Discord(os.getenv('DISC_BOT_TOKEN'))
+    print(d.get_channels_to_archive('167448036212080640'))
         
